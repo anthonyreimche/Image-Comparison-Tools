@@ -1,0 +1,11 @@
+{
+  "name": "safelight-image-comparison",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Before/after comparison (hold-to-preview + draggable split) extension for SafeLight.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "install-local": "node scripts/install.mjs"
+  }
+}
