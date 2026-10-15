@@ -6,8 +6,9 @@
 
 // ── Develop params ───────────────────────────────────────────────────────────
 // The full edit state. We only read it back out and hand it to captureFrame /
-// setPreviewParams, so the body stays permissive; the geometry fields we copy
-// to keep before/after aligned are named for clarity.
+// setPreviewParams, so the body stays permissive; the fields we copy to keep
+// before/after aligned (the geometry, and the processing version) are named
+// for clarity.
 
 export interface DevelopParams {
   crop?: unknown;
@@ -16,6 +17,9 @@ export interface DevelopParams {
   uprightMode?: unknown;
   guidedLines?: unknown;
   lensCorrection?: unknown;
+  /** The rendering generation the edit was made with; absent on builds that
+   *  predate process versions. */
+  processVersion?: number;
   [key: string]: unknown;
 }
 
@@ -63,6 +67,12 @@ export interface KeybindingsState {
 }
 
 // ── Contributions / API ──────────────────────────────────────────────────────
+
+// The app's shared UI kit components are plain React components; we don't bundle
+// React, so type them as a permissive component alias (matches how `react` is
+// typed as `any` above).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ComponentType = (...args: any[]) => any;
 
 export type SlotName =
   | "library-toolbar"
@@ -115,9 +125,34 @@ export interface SafelightAPI {
     [key: string]: unknown;
   };
   keybindings: { getBinding(actionId: string): string };
+  /** Optional on older builds — resolve a cursor token (e.g. "crop-resize-ew",
+   *  "pick") to a CSS cursor value, honouring any Custom Cursors theme. */
+  cursors?: {
+    labels: Readonly<Record<string, string>>;
+    resolve(token: string): string;
+  };
   develop: {
     useDevelopOverlay(): { rect: OverlayRect | null; nonce: number };
-    captureFrame(params: DevelopParams): Promise<ImageBitmap>;
+    /** sRGB by default; `asShown` converts it the way the canvas is (a Linux
+     *  display profile). Older cores ignore the option. */
+    captureFrame(params: DevelopParams, options?: { asShown?: boolean }): Promise<ImageBitmap>;
+  };
+  ui?: {
+    Button: ComponentType;
+    Select: ComponentType;
+    TextInput: ComponentType;
+    NumberInput: ComponentType;
+    TextArea: ComponentType;
+    Toggle: ComponentType;
+    SegmentedControl: ComponentType;
+    Field: ComponentType;
+    Section: ComponentType;
+    Card: ComponentType;
+    Badge: ComponentType;
+    ProgressBar: ComponentType;
+    Row: ComponentType;
+    Stack: ComponentType;
+    tokens: Record<string, string>;
   };
 }
 

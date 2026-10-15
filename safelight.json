@@ -1,12 +1,12 @@
 {
   "id": "com.safelight.image-comparison",
   "name": "Image Comparison",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Before/after comparison for the Develop module: hold (or toggle) \\ to preview the original, or drag a vertical split across the canvas to reveal the unedited photo beside your edit.",
-  "author": "Anthony Reimche <anthonyreimche@gmail.com>",
+  "author": "Anthony Reimche",
   "main": "dist/index.js",
   "categories": ["Develop"],
   "keywords": ["before", "after", "compare", "original", "split", "develop", "preview"],
   "license": "MIT",
-  "minAppVersion": "2.0.0"
+  "minAppVersion": "2.4.3"
 }

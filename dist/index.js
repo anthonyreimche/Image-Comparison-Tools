@@ -39,25 +39,41 @@ function compareStore() {
 	return _store;
 }
 //#endregion
+//#region src/before.ts
+/** The original's tone, colour and effects with `cur`'s framing and processing
+*  version. The Original snapshot can predate the photo's version (Reset all
+*  edits and Update processing both raise it), and a Before rendered with
+*  different processing than the After isn't a fair comparison. */
+function buildBeforeParams(cur, original) {
+	return {
+		...original,
+		crop: cur.crop,
+		transform: cur.transform,
+		straighten: cur.straighten,
+		uprightMode: cur.uprightMode,
+		guidedLines: cur.guidedLines,
+		lensCorrection: cur.lensCorrection,
+		processVersion: cur.processVersion
+	};
+}
+//#endregion
 //#region src/develop.ts
 /** Build the before/original params, or null if no photo is loaded. */
 function beforeParams() {
 	const dev = api().stores.useDevelopStore.getState();
 	const cur = dev.params;
 	if (!cur || !dev.photoId) return null;
-	return {
-		...dev.history?.[0]?.params ?? cur,
-		crop: cur.crop,
-		transform: cur.transform,
-		straighten: cur.straighten,
-		uprightMode: cur.uprightMode,
-		guidedLines: cur.guidedLines,
-		lensCorrection: cur.lensCorrection
-	};
+	return buildBeforeParams(cur, dev.history?.[0]?.params ?? cur);
 }
-/** True when Develop is the active module with a photo open. */
+/** True when Develop is the active module with a photo open. Develop counts as
+*  active either as the main window's module OR as its own popped-out window —
+*  a detached window carries ?detached=develop in its URL and keeps its own
+*  activeModule, so we check the param too (exactly as core's key handler does).
+*  Without this the hold/toggle and split shortcuts go dead in a detached
+*  Develop window even though the Compare button still works. */
 function inDevelop() {
-	return api().stores.useUIStore.getState().activeModule === "develop" && !!api().stores.useDevelopStore.getState().photoId;
+	const detached = new URLSearchParams(window.location.search).get("detached");
+	return (api().stores.useUIStore.getState().activeModule === "develop" || detached === "develop") && !!api().stores.useDevelopStore.getState().photoId;
 }
 //#endregion
 //#region src/keys.ts
@@ -182,33 +198,23 @@ function splitIcon(size = 14) {
 //#endregion
 //#region src/Toolbar.ts
 function CompareToolbar() {
-	const react = R();
+	const ui = api().ui;
+	if (!ui) return h("div", { style: {
+		padding: "10px",
+		fontSize: "11px",
+		color: "var(--color-text-muted)"
+	} }, "Update Safelight to use this panel.");
 	const store = compareStore();
 	const splitOn = store((s) => s.splitOn);
 	const toggleSplit = store((s) => s.toggleSplit);
-	const [hover, setHover] = react.useState(false);
-	return h("button", {
+	return h(ui.Button, {
+		size: "sm",
+		variant: "ghost",
+		active: splitOn,
 		onClick: toggleSplit,
 		title: "Before / after split (Shift+\\)",
 		"aria-label": "Toggle before/after split",
-		"aria-pressed": splitOn,
-		onMouseEnter: () => setHover(true),
-		onMouseLeave: () => setHover(false),
-		style: {
-			display: "flex",
-			alignItems: "center",
-			gap: "5px",
-			height: "22px",
-			padding: "0 8px",
-			borderRadius: "4px",
-			border: "1px solid",
-			borderColor: splitOn ? "var(--color-accent)" : "var(--color-border-subtle)",
-			background: splitOn ? "var(--color-accent)" : "transparent",
-			color: splitOn ? "var(--color-on-accent, #fff)" : splitOn || hover ? "var(--color-text-primary)" : "var(--color-text-muted)",
-			cursor: "pointer",
-			fontSize: "11px",
-			lineHeight: 1
-		}
+		"aria-pressed": splitOn
 	}, splitIcon(13), h("span", null, "Compare"));
 }
 //#endregion
@@ -240,6 +246,7 @@ function SliderOverlay() {
 	const cropping = devStore((s) => s.cropping);
 	const activeTool = devStore((s) => s.activeTool);
 	const photoId = devStore((s) => s.photoId);
+	const processVersion = devStore((s) => s.params?.processVersion);
 	const { rect, nonce } = api().develop.useDevelopOverlay();
 	const canvasRef = react.useRef(null);
 	const wrapRef = react.useRef(null);
@@ -276,7 +283,8 @@ function SliderOverlay() {
 	}, [
 		visible,
 		nonce,
-		photoId
+		photoId,
+		processVersion
 	]);
 	if (!visible || !rect) return null;
 	const pct = `${Math.max(0, Math.min(1, split)) * 100}%`;
@@ -335,7 +343,7 @@ function SliderOverlay() {
 			display: "flex",
 			alignItems: "center",
 			justifyContent: "center",
-			cursor: "ew-resize",
+			cursor: api().cursors?.resolve("crop-resize-ew") ?? "ew-resize",
 			pointerEvents: "auto",
 			touchAction: "none"
 		}

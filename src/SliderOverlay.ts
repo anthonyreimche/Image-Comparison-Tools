@@ -2,7 +2,8 @@
 // "develop-canvas-overlay" slot. Left of the divider shows the unedited photo
 // (an off-screen capture, aligned to the live view via api.develop); right is
 // the live edited canvas showing through. Drag the divider to reveal more of
-// either. Editing stays fully live — only geometry changes re-grab the before.
+// either. Editing stays fully live — only view geometry and processing-version
+// changes re-grab the before.
 //
 // Inline styles + CSS variables (no Tailwind: runtime-loaded files aren't
 // scanned by the app's build).
@@ -47,6 +48,9 @@ export function SliderOverlay() {
   const cropping: boolean = devStore((s) => s.cropping);
   const activeTool: string = devStore((s) => s.activeTool);
   const photoId: string | null = devStore((s) => s.photoId);
+  // The Before renders at the photo's current processing version, so a change
+  // (Update processing, Reset all edits) has to re-grab it.
+  const processVersion: number | undefined = devStore((s) => s.params?.processVersion);
 
   const { rect, nonce } = api().develop.useDevelopOverlay();
 
@@ -57,8 +61,9 @@ export function SliderOverlay() {
 
   const visible = splitOn && !cropping && activeTool === "none" && !!rect && !!photoId;
 
-  // Grab the "before" frame for the current view; re-grab on view/photo change.
-  // Debounced so a continuous pan/zoom doesn't fire a capture per frame.
+  // Grab the "before" frame for the current view; re-grab on a view, photo or
+  // processing-version change. Debounced so a continuous pan/zoom doesn't fire
+  // a capture per frame.
   react.useEffect(() => {
     if (!visible) {
       setReady(false);
@@ -68,8 +73,10 @@ export function SliderOverlay() {
     const timer = setTimeout(() => {
       const bp = beforeParams();
       if (!bp) return;
+      // As shown: drawn over the canvas, it must match the canvas under a
+      // display profile. Older cores ignore the option and match anyway.
       api()
-        .develop.captureFrame(bp)
+        .develop.captureFrame(bp, { asShown: true })
         .then((bitmap: ImageBitmap) => {
           const cv = canvasRef.current as HTMLCanvasElement | null;
           if (cancelled || !cv) {
@@ -88,7 +95,7 @@ export function SliderOverlay() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [visible, nonce, photoId]);
+  }, [visible, nonce, photoId, processVersion]);
 
   if (!visible || !rect) return null;
 
@@ -166,7 +173,9 @@ export function SliderOverlay() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        cursor: "ew-resize",
+        // Shared resize-divider token (so Custom Cursors themes restyle it) with a
+        // fallback for older builds that predate api.cursors.resolve.
+        cursor: api().cursors?.resolve("crop-resize-ew") ?? "ew-resize",
         pointerEvents: "auto",
         touchAction: "none",
       },
