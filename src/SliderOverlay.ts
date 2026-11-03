@@ -156,7 +156,7 @@ export function SliderOverlay() {
     label("Before", "left"),
   );
 
-  // The divider: a thin line with a centered grab handle, full height.
+  // The divider: a thin line with a centred grab handle, full height.
   const divider = h(
     "div",
     {
