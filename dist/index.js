@@ -262,7 +262,7 @@ function SliderOverlay() {
 		const timer = setTimeout(() => {
 			const bp = beforeParams();
 			if (!bp) return;
-			api().develop.captureFrame(bp).then((bitmap) => {
+			api().develop.captureFrame(bp, { asShown: true }).then((bitmap) => {
 				const cv = canvasRef.current;
 				if (cancelled || !cv) {
 					bitmap.close();
