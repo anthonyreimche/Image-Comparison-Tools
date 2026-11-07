@@ -105,8 +105,6 @@ function openSplit() {
     photoId: "P",
     params: { exposure: 1, processVersion: 1 },
     history: [{ label: "Original", params: { exposure: 0, processVersion: 1 } }],
-    cropping: false,
-    activeTool: "none",
     setPreviewParams() {},
   }));
   extension.activate({
@@ -149,6 +147,16 @@ function openSplit() {
     },
   };
 }
+
+// Core has kept no tool or crop flags on the develop store since the built-in
+// tools moved out of core; the split must not wait on them.
+test("shows the split on core's develop store, which has no tool or crop flags", (t) => {
+  const split = openSplit();
+  t.after(() => split.close());
+
+  split.show();
+  assert.equal(split.captures.length, 1);
+});
 
 test("re-grabs the Before when the photo's processing version changes", (t) => {
   const split = openSplit();

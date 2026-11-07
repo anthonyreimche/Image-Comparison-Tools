@@ -45,8 +45,6 @@ export function SliderOverlay() {
   const setSplit: (v: number) => void = store((s) => s.setSplit);
 
   const devStore = api().stores.useDevelopStore;
-  const cropping: boolean = devStore((s) => s.cropping);
-  const activeTool: string = devStore((s) => s.activeTool);
   const photoId: string | null = devStore((s) => s.photoId);
   // The Before renders at the photo's current processing version, so a change
   // (Update processing, Reset all edits) has to re-grab it.
@@ -59,7 +57,7 @@ export function SliderOverlay() {
   const draggingRef = react.useRef(false);
   const [ready, setReady] = react.useState(false);
 
-  const visible = splitOn && !cropping && activeTool === "none" && !!rect && !!photoId;
+  const visible = splitOn && !!rect && !!photoId;
 
   // Grab the "before" frame for the current view; re-grab on a view, photo or
   // processing-version change. Debounced so a continuous pan/zoom doesn't fire

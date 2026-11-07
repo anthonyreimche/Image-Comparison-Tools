@@ -1,7 +1,7 @@
 {
   "name": "safelight-image-comparison",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Before/after comparison (hold-to-preview + draggable split) extension for SafeLight.",
   "type": "module",
   "scripts": {

@@ -49,8 +49,6 @@ export interface DevelopStoreState {
   previewParams: DevelopParams | null;
   history: EditSnapshot[];
   asShotTemperature: number;
-  cropping: boolean;
-  activeTool: "none" | "mask" | "retouch" | "hsl-picker";
   setPreviewParams(params: DevelopParams | null): void;
 }
 
