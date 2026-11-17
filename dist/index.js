@@ -27,10 +27,30 @@ function initStore() {
 		splitOn: false,
 		split: .5,
 		indicator: null,
-		setSplitOn: (splitOn) => set({ splitOn }),
-		toggleSplit: () => set((s) => ({ splitOn: !s.splitOn })),
+		reference: null,
+		splitByReference: false,
+		setSplitOn: (splitOn) => set({
+			splitOn,
+			splitByReference: false
+		}),
+		toggleSplit: () => set((s) => ({
+			splitOn: !s.splitOn,
+			splitByReference: false
+		})),
 		setSplit: (split) => set({ split: Math.max(0, Math.min(1, split)) }),
-		setIndicator: (indicator) => set({ indicator })
+		setIndicator: (indicator) => set({ indicator }),
+		setReference: (reference) => set((s) => {
+			if (!reference) return s.splitByReference ? {
+				reference,
+				splitOn: false,
+				splitByReference: false
+			} : { reference };
+			return (!s.reference || s.reference.source !== reference.source || s.reference.id !== reference.id) && !s.splitOn ? {
+				reference,
+				splitOn: true,
+				splitByReference: true
+			} : { reference };
+		})
 	}));
 	return _store;
 }
@@ -57,13 +77,61 @@ function buildBeforeParams(cur, original) {
 	};
 }
 //#endregion
+//#region src/reference.ts
+const COMPARE_REFERENCE = "compare.reference";
+const COMPARE_REFERENCE_DESCRIPTION = "The edit Image Comparison shows as Before for the open photo, in place of the photo as opened, or null. { photoId, source, id, label, params, paramBag }: label names the Before side; the extension that set it (source) clears it.";
+const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+/** `value` as a reference for the open photo, or null when it is none, belongs
+*  to another photo, or lacks a field a Before needs. Another extension writes
+*  it, so it is checked rather than trusted. */
+function referenceFor(value, photoId) {
+	if (!isObject(value) || photoId === null || value.photoId !== photoId) return null;
+	const { source, id, label, params, paramBag } = value;
+	if (typeof source !== "string" || typeof id !== "string" || typeof label !== "string") return null;
+	if (!isObject(params) || !isObject(paramBag)) return null;
+	return {
+		photoId,
+		source,
+		id,
+		label,
+		params,
+		paramBag
+	};
+}
+/** The extension values a Before of the reference draws. A capture's or
+*  preview's bag is merged over the live one, so each value only the live edit
+*  holds is put back at the default a stage reads when an edit holds none. */
+function referenceBag(bag, live, describe) {
+	const out = { ...bag };
+	for (const key of Object.keys(live)) {
+		if (key in out) continue;
+		const fallback = describe(key)?.default;
+		if (fallback !== void 0) out[key] = fallback;
+	}
+	return out;
+}
+//#endregion
 //#region src/develop.ts
-/** Build the before/original params, or null if no photo is loaded. */
-function beforeParams() {
+/** The Before: a reference another extension handed over for this photo (a
+*  snapshot), else the photo as opened. Either way at the current framing and
+*  processing version. Null with no photo loaded. */
+function before() {
 	const dev = api().stores.useDevelopStore.getState();
 	const cur = dev.params;
 	if (!cur || !dev.photoId) return null;
-	return buildBeforeParams(cur, dev.history?.[0]?.params ?? cur);
+	const reference = compareStore().getState().reference;
+	if (reference) {
+		const describe = (key) => api().params?.get(key);
+		return {
+			params: buildBeforeParams(cur, reference.params),
+			paramBag: referenceBag(reference.paramBag, dev.paramBag ?? {}, describe),
+			label: reference.label
+		};
+	}
+	return {
+		params: buildBeforeParams(cur, dev.history?.[0]?.params ?? cur),
+		label: "Before"
+	};
 }
 /** True when Develop is the active module with a photo open. Develop counts as
 *  active either as the main window's module OR as its own popped-out window —
@@ -109,8 +177,11 @@ function previewCombo() {
 	return api().stores.useKeybindings.getState().overrides["com.safelight.image-comparison.preview"] ?? DEFAULT_COMBO;
 }
 function showBefore() {
-	const bp = beforeParams();
-	if (bp) api().stores.useDevelopStore.getState().setPreviewParams(bp);
+	const shown = before();
+	if (!shown) return;
+	const preview = api().stores.useDevelopStore.getState().setPreviewParams;
+	if (shown.paramBag) preview(shown.params, shown.paramBag);
+	else preview(shown.params);
 }
 function showAfter() {
 	api().stores.useDevelopStore.getState().setPreviewParams(null);
@@ -242,9 +313,8 @@ function SliderOverlay() {
 	const splitOn = store((s) => s.splitOn);
 	const split = store((s) => s.split);
 	const setSplit = store((s) => s.setSplit);
+	const reference = store((s) => s.reference);
 	const devStore = api().stores.useDevelopStore;
-	const cropping = devStore((s) => s.cropping);
-	const activeTool = devStore((s) => s.activeTool);
 	const photoId = devStore((s) => s.photoId);
 	const processVersion = devStore((s) => s.params?.processVersion);
 	const { rect, nonce } = api().develop.useDevelopOverlay();
@@ -252,7 +322,7 @@ function SliderOverlay() {
 	const wrapRef = react.useRef(null);
 	const draggingRef = react.useRef(false);
 	const [ready, setReady] = react.useState(false);
-	const visible = splitOn && !cropping && activeTool === "none" && !!rect && !!photoId;
+	const visible = splitOn && !!rect && !!photoId;
 	react.useEffect(() => {
 		if (!visible) {
 			setReady(false);
@@ -260,9 +330,13 @@ function SliderOverlay() {
 		}
 		let cancelled = false;
 		const timer = setTimeout(() => {
-			const bp = beforeParams();
-			if (!bp) return;
-			api().develop.captureFrame(bp, { asShown: true }).then((bitmap) => {
+			const shown = before();
+			if (!shown) return;
+			const options = shown.paramBag ? {
+				asShown: true,
+				paramBag: shown.paramBag
+			} : { asShown: true };
+			api().develop.captureFrame(shown.params, options).then((bitmap) => {
 				const cv = canvasRef.current;
 				if (cancelled || !cv) {
 					bitmap.close();
@@ -284,7 +358,8 @@ function SliderOverlay() {
 		visible,
 		nonce,
 		photoId,
-		processVersion
+		processVersion,
+		reference
 	]);
 	if (!visible || !rect) return null;
 	const pct = `${Math.max(0, Math.min(1, split)) * 100}%`;
@@ -328,7 +403,7 @@ function SliderOverlay() {
 			opacity: ready ? 1 : 0,
 			transition: "opacity 120ms linear"
 		}
-	}), label("Before", "left"));
+	}), label(reference?.label ?? "Before", "left"));
 	const divider = h("div", {
 		onPointerDown: onDown,
 		onPointerMove: onMove,
@@ -389,6 +464,7 @@ function CompareIndicator() {
 	const store = compareStore();
 	const indicator = store((s) => s.indicator);
 	const setIndicator = store((s) => s.setIndicator);
+	const referenceLabel = store((s) => s.reference?.label);
 	const [leaving, setLeaving] = react.useState(false);
 	react.useEffect(() => {
 		if (indicator !== "after") {
@@ -421,13 +497,38 @@ function CompareIndicator() {
 		userSelect: "none",
 		opacity: isAfter && leaving ? 0 : 1,
 		transition: isAfter ? `opacity ${FADE_MS}ms ease-out` : "none"
-	} }, isAfter ? "After" : "Before");
+	} }, isAfter ? "After" : referenceLabel ?? "Before");
 }
 //#endregion
 //#region src/index.ts
 const ID = "com.safelight.image-comparison";
 const SPLIT_ACTION = `${ID}.split`;
 let cleanupKeys = null;
+let stopReference = null;
+/** Follow the edit other extensions hand over to compare with (Snapshots), as
+*  the open photo's reference. Needs shared variables (Safelight 3.0.1). */
+function followReference(api) {
+	const variables = api.variables;
+	if (!variables) return null;
+	const develop = api.stores.useDevelopStore;
+	let latest = null;
+	const apply = () => compareStore().getState().setReference(referenceFor(latest, develop.getState().photoId));
+	variables.register(COMPARE_REFERENCE, {
+		initial: null,
+		description: COMPARE_REFERENCE_DESCRIPTION
+	});
+	const stopVariable = variables.subscribe(COMPARE_REFERENCE, (snapshot) => {
+		latest = snapshot.value;
+		apply();
+	});
+	const stopPhoto = develop.subscribe((s, prev) => {
+		if (s.photoId !== prev.photoId) apply();
+	});
+	return () => {
+		stopVariable();
+		stopPhoto();
+	};
+}
 function activate(api) {
 	initRuntime(api);
 	initStore();
@@ -439,6 +540,7 @@ function activate(api) {
 		handler: () => {}
 	});
 	cleanupKeys = initPreviewKeys();
+	stopReference = followReference(api);
 	api.registerKeybinding({
 		id: SPLIT_ACTION,
 		label: "Before / after split",
@@ -469,6 +571,8 @@ function activate(api) {
 function deactivate() {
 	cleanupKeys?.();
 	cleanupKeys = null;
+	stopReference?.();
+	stopReference = null;
 }
 //#endregion
 export { activate, deactivate };

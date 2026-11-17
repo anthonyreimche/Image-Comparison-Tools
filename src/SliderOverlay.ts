@@ -10,7 +10,7 @@
 
 import { h, R, api } from "./runtime";
 import { compareStore } from "./store";
-import { beforeParams } from "./develop";
+import { before } from "./develop";
 
 const CAPTURE_DEBOUNCE_MS = 60;
 
@@ -43,6 +43,7 @@ export function SliderOverlay() {
   const splitOn: boolean = store((s) => s.splitOn);
   const split: number = store((s) => s.split);
   const setSplit: (v: number) => void = store((s) => s.setSplit);
+  const reference = store((s) => s.reference);
 
   const devStore = api().stores.useDevelopStore;
   const photoId: string | null = devStore((s) => s.photoId);
@@ -69,12 +70,13 @@ export function SliderOverlay() {
     }
     let cancelled = false;
     const timer = setTimeout(() => {
-      const bp = beforeParams();
-      if (!bp) return;
+      const shown = before();
+      if (!shown) return;
       // As shown: drawn over the canvas, it must match the canvas under a
       // display profile. Older cores ignore the option and match anyway.
+      const options = shown.paramBag ? { asShown: true, paramBag: shown.paramBag } : { asShown: true };
       api()
-        .develop.captureFrame(bp, { asShown: true })
+        .develop.captureFrame(shown.params, options)
         .then((bitmap: ImageBitmap) => {
           const cv = canvasRef.current as HTMLCanvasElement | null;
           if (cancelled || !cv) {
@@ -93,7 +95,7 @@ export function SliderOverlay() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [visible, nonce, photoId, processVersion]);
+  }, [visible, nonce, photoId, processVersion, reference]);
 
   if (!visible || !rect) return null;
 
@@ -151,7 +153,7 @@ export function SliderOverlay() {
         transition: "opacity 120ms linear",
       },
     }),
-    label("Before", "left"),
+    label(reference?.label ?? "Before", "left"),
   );
 
   // The divider: a thin line with a centred grab handle, full height.

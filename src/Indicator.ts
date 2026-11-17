@@ -13,6 +13,7 @@ export function CompareIndicator() {
   const store = compareStore();
   const indicator: "before" | "after" | null = store((s) => s.indicator);
   const setIndicator: (v: "before" | "after" | null) => void = store((s) => s.setIndicator);
+  const referenceLabel = store((s) => s.reference?.label);
   const [leaving, setLeaving] = react.useState(false);
 
   react.useEffect(() => {
@@ -54,6 +55,6 @@ export function CompareIndicator() {
         transition: isAfter ? `opacity ${FADE_MS}ms ease-out` : "none",
       },
     },
-    isAfter ? "After" : "Before",
+    isAfter ? "After" : (referenceLabel ?? "Before"),
   );
 }

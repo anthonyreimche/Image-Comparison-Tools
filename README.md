@@ -29,6 +29,19 @@ line up exactly, for an honest comparison.
 Both modes follow your zoom and pan, so you can zoom in on a sharpened eye or a
 recovered highlight and check the exact same spot in each version.
 
+## Compare with a snapshot
+
+With the **Snapshots** extension installed, press **⇆** beside a snapshot to
+make it the Before in place of the original: the split opens with the
+snapshot's name on its side, and holding or tapping `\` shows it too. Press
+**⇆** again, or open another photo, to go back to the original. The snapshot
+is shown at your current framing and processing, like the original is.
+
+For extension authors: the Before comes from the shared variable
+`compare.reference`, which Image Comparison registers (Safelight 3.0.1 and
+later). Set it to `{ photoId, source, id, label, params, paramBag }` for the
+open photo to show that edit, or to `null` for the original.
+
 ## Shortcuts
 
 | Action | Shortcut |

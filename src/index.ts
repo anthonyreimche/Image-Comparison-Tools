@@ -23,11 +23,35 @@ import { inDevelop } from "./develop";
 import { CompareToolbar } from "./Toolbar";
 import { SliderOverlay } from "./SliderOverlay";
 import { CompareIndicator } from "./Indicator";
+import { COMPARE_REFERENCE, COMPARE_REFERENCE_DESCRIPTION, referenceFor } from "./reference";
 
 const ID = "com.safelight.image-comparison";
 const SPLIT_ACTION = `${ID}.split`;
 
 let cleanupKeys: (() => void) | null = null;
+let stopReference: (() => void) | null = null;
+
+/** Follow the edit other extensions hand over to compare with (Snapshots), as
+ *  the open photo's reference. Needs shared variables (Safelight 3.0.1). */
+function followReference(api: SafelightAPI): (() => void) | null {
+  const variables = api.variables;
+  if (!variables) return null;
+  const develop = api.stores.useDevelopStore;
+  let latest: unknown = null;
+  const apply = () => compareStore().getState().setReference(referenceFor(latest, develop.getState().photoId));
+  variables.register(COMPARE_REFERENCE, { initial: null, description: COMPARE_REFERENCE_DESCRIPTION });
+  const stopVariable = variables.subscribe<unknown>(COMPARE_REFERENCE, (snapshot) => {
+    latest = snapshot.value;
+    apply();
+  });
+  const stopPhoto = develop.subscribe((s, prev) => {
+    if (s.photoId !== prev.photoId) apply();
+  });
+  return () => {
+    stopVariable();
+    stopPhoto();
+  };
+}
 
 export function activate(api: SafelightAPI): void {
   initRuntime(api);
@@ -46,6 +70,7 @@ export function activate(api: SafelightAPI): void {
     handler: () => {},
   });
   cleanupKeys = initPreviewKeys();
+  stopReference = followReference(api);
 
   // ── Variant B: before/after split ───────────────────────────────────────────
   // Combos match `e.key`, and Shift+\ produces "|" on common layouts (same
@@ -84,4 +109,6 @@ export function deactivate(): void {
   // sweeps the registry (slots + keybindings) on disable/uninstall.
   cleanupKeys?.();
   cleanupKeys = null;
+  stopReference?.();
+  stopReference = null;
 }

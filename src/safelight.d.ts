@@ -46,10 +46,13 @@ export type StateCreator<T> = (
 export interface DevelopStoreState {
   photoId: string | null;
   params: DevelopParams;
+  /** Extension stage params by qualified key ("{stageId}.{key}"). */
+  paramBag: Record<string, unknown>;
   previewParams: DevelopParams | null;
   history: EditSnapshot[];
   asShotTemperature: number;
-  setPreviewParams(params: DevelopParams | null): void;
+  /** `paramBag` is merged over the live one for the preview. */
+  setPreviewParams(params: DevelopParams | null, paramBag?: Record<string, unknown> | null): void;
 }
 
 export interface UIStoreState {
@@ -133,7 +136,21 @@ export interface SafelightAPI {
     useDevelopOverlay(): { rect: OverlayRect | null; nonce: number };
     /** sRGB by default; `asShown` converts it the way the canvas is (a Linux
      *  display profile). Older cores ignore the option. */
-    captureFrame(params: DevelopParams, options?: { asShown?: boolean }): Promise<ImageBitmap>;
+    captureFrame(
+      params: DevelopParams,
+      options?: { asShown?: boolean; paramBag?: Record<string, unknown> },
+    ): Promise<ImageBitmap>;
+  };
+  /** The value a stage reads while an edit holds none, by qualified key.
+   *  Absent on builds before extension params were listed. */
+  params?: {
+    get(qualifiedKey: string): { default: unknown } | undefined;
+  };
+  /** Named JSON values every extension can share, in every window. Absent
+   *  before Safelight 3.0.1. */
+  variables?: {
+    register<T>(name: string, init: { initial: T; description?: string }): { value: T };
+    subscribe<T>(name: string, listener: (snapshot: { value: T }) => void): () => void;
   };
   ui?: {
     Button: ComponentType;

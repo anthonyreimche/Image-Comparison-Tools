@@ -9,7 +9,7 @@
 // handler is inert. We read its current combo here so a rebind still works.
 
 import { api } from "./runtime";
-import { beforeParams, inDevelop } from "./develop";
+import { before, inDevelop } from "./develop";
 import { compareStore } from "./store";
 
 export const PREVIEW_ACTION = "com.safelight.image-comparison.preview";
@@ -48,8 +48,11 @@ function previewCombo(): string {
 // We set the badge from the key handlers (not these helpers) so teardown can
 // clear the preview without flashing a label.
 function showBefore(): void {
-  const bp = beforeParams();
-  if (bp) api().stores.useDevelopStore.getState().setPreviewParams(bp);
+  const shown = before();
+  if (!shown) return;
+  const preview = api().stores.useDevelopStore.getState().setPreviewParams;
+  if (shown.paramBag) preview(shown.params, shown.paramBag);
+  else preview(shown.params);
 }
 
 function showAfter(): void {
