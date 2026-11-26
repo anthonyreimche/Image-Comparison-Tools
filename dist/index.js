@@ -133,20 +133,13 @@ function before() {
 		label: "Before"
 	};
 }
-/** True when Develop is the active module with a photo open. Develop counts as
-*  active either as the main window's module OR as its own popped-out window —
-*  a detached window carries ?detached=develop in its URL and keeps its own
-*  activeModule, so we check the param too (exactly as core's key handler does).
-*  Without this the hold/toggle and split shortcuts go dead in a detached
-*  Develop window even though the Compare button still works. */
+/** True when Develop is the module this window shows, with a photo open. */
 function inDevelop() {
-	const detached = new URLSearchParams(window.location.search).get("detached");
-	return (api().stores.useUIStore.getState().activeModule === "develop" || detached === "develop") && !!api().stores.useDevelopStore.getState().photoId;
+	return api().navigation.current() === "develop" && !!api().stores.useDevelopStore.getState().photoId;
 }
 //#endregion
 //#region src/keys.ts
 const PREVIEW_ACTION = "com.safelight.image-comparison.preview";
-const DEFAULT_COMBO = "\\";
 const TAP_MS = 220;
 function comboFromEvent(e) {
 	const k = e.key;
@@ -174,7 +167,7 @@ function isEditableTarget(t) {
 	return t.isContentEditable;
 }
 function previewCombo() {
-	return api().stores.useKeybindings.getState().overrides["com.safelight.image-comparison.preview"] ?? DEFAULT_COMBO;
+	return api().keybindings.getBinding(PREVIEW_ACTION);
 }
 function showBefore() {
 	const shown = before();

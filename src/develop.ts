@@ -39,16 +39,7 @@ export function before(): Before | null {
   return { params: buildBeforeParams(cur, original), label: "Before" };
 }
 
-/** True when Develop is the active module with a photo open. Develop counts as
- *  active either as the main window's module OR as its own popped-out window —
- *  a detached window carries ?detached=develop in its URL and keeps its own
- *  activeModule, so we check the param too (exactly as core's key handler does).
- *  Without this the hold/toggle and split shortcuts go dead in a detached
- *  Develop window even though the Compare button still works. */
+/** True when Develop is the module this window shows, with a photo open. */
 export function inDevelop(): boolean {
-  const detached = new URLSearchParams(window.location.search).get("detached");
-  const active =
-    api().stores.useUIStore.getState().activeModule === "develop" ||
-    detached === "develop";
-  return active && !!api().stores.useDevelopStore.getState().photoId;
+  return api().navigation.current() === "develop" && !!api().stores.useDevelopStore.getState().photoId;
 }

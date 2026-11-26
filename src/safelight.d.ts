@@ -55,10 +55,6 @@ export interface DevelopStoreState {
   setPreviewParams(params: DevelopParams | null, paramBag?: Record<string, unknown> | null): void;
 }
 
-export interface UIStoreState {
-  activeModule: "library" | "develop";
-}
-
 export interface CatalogStoreState {
   activePhotoId: string | null;
 }
@@ -117,10 +113,16 @@ export interface SafelightAPI {
     set(key: string, value: unknown): void;
     onChange(cb: (key: string, value: unknown) => void): () => void;
   };
+  navigation: {
+    /** The module this window shows: a popped-out window's own module, else
+     *  the main window's tab. Ask it before acting on a Develop shortcut,
+     *  `current() === "develop"`, rather than reading the URL. Needs
+     *  Safelight 3.2.7. */
+    current(): string;
+  };
   stores: {
     create<T>(initializer: StateCreator<T>): StoreApi<T>;
     useDevelopStore: StoreApi<DevelopStoreState>;
-    useUIStore: StoreApi<UIStoreState>;
     useCatalogStore: StoreApi<CatalogStoreState>;
     useKeybindings: StoreApi<KeybindingsState>;
     [key: string]: unknown;

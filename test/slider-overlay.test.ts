@@ -20,7 +20,6 @@ const windowListeners = new Map<string, Set<KeyListener>>();
 Object.assign(globalThis, {
   HTMLElement: class {},
   window: {
-    location: { search: "" },
     addEventListener(type: string, l: KeyListener) {
       if (!windowListeners.has(type)) windowListeners.set(type, new Set());
       windowListeners.get(type)!.add(l);
@@ -135,15 +134,18 @@ function openSplit({ split = true, variables = false } = {}) {
       return () => listeners.get(name)!.delete(l);
     },
   };
+  const nav = { module: "develop" };
+  const bindings: Record<string, string> = {};
   const defaults: Record<string, number> = { "glow.amount": 0, "grain.size": 1.5 };
   extension.activate({
     react: hooks.react,
     stores: {
       create: createStore,
       useDevelopStore: develop,
-      useUIStore: createStore(() => ({ activeModule: "develop" })),
       useKeybindings: createStore(() => ({ overrides: {} })),
     },
+    navigation: { current: () => nav.module },
+    keybindings: { getBinding: (id: string) => bindings[id] ?? "\\" },
     develop: {
       useDevelopOverlay: () => ({ rect: { x: 0, y: 0, w: 100, h: 100 }, nonce: 0 }),
       captureFrame: (params: { processVersion?: number }, options?: { asShown?: boolean }) => {
@@ -169,6 +171,8 @@ function openSplit({ split = true, variables = false } = {}) {
   mock.timers.enable({ apis: ["setTimeout"] });
   return {
     develop,
+    nav,
+    bindings,
     captures,
     captureOptions,
     previews,
@@ -334,4 +338,30 @@ test("previews the reference while the Before key is held", (t) => {
   assert.deepEqual(bag, { "glow.amount": 0.4, "grain.size": 1.5 });
   fireKey("keyup", "\\", 1000);
   assert.deepEqual(split.previews.at(-1), [null]);
+});
+
+test("takes the Before key and the split shortcut only in Develop", (t) => {
+  const split = openSplit({ split: false, variables: true });
+  t.after(() => split.close());
+
+  split.nav.module = "library";
+  fireKey("keydown", "\\", 0);
+  assert.equal(split.previews.length, 0);
+  split.toggleSplit();
+  fireKey("keydown", "\\", 0);
+  assert.equal(split.previews.length, 0);
+  split.nav.module = "develop";
+  fireKey("keydown", "\\", 0);
+  assert.equal(split.previews.length, 1);
+});
+
+test("takes the Before key as the person rebound it", (t) => {
+  const split = openSplit({ split: false, variables: true });
+  t.after(() => split.close());
+
+  split.bindings["com.safelight.image-comparison.preview"] = "B";
+  fireKey("keydown", "\\", 0);
+  assert.equal(split.previews.length, 0);
+  fireKey("keydown", "b", 0);
+  assert.equal(split.previews.length, 1);
 });

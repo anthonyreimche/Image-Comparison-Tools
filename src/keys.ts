@@ -13,7 +13,6 @@ import { before, inDevelop } from "./develop";
 import { compareStore } from "./store";
 
 export const PREVIEW_ACTION = "com.safelight.image-comparison.preview";
-const DEFAULT_COMBO = "\\";
 const TAP_MS = 220;
 
 // Normalized combo for an event, in the same format as core keybindings
@@ -41,7 +40,7 @@ function isEditableTarget(t: EventTarget | null): boolean {
 }
 
 function previewCombo(): string {
-  return api().stores.useKeybindings.getState().overrides[PREVIEW_ACTION] ?? DEFAULT_COMBO;
+  return api().keybindings.getBinding(PREVIEW_ACTION);
 }
 
 // previewParams is the render override; the indicator is the on-canvas badge.
